@@ -182,9 +182,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 				dailyLimitReached = false;
 				levelLastTradeTime = new Dictionary<double, DateTime>();
 
-				trailStopPrice = 0;
-				highestProfitReached = 0;
-				lowestProfitReached = 0;
+				trailStopPrice = new double[2];
+				highestProfitReached = new double[2];
+				lowestProfitReached = new double[2];
 				stopOrderRetryCount = 0;
 				lastStopOrderAttempt = DateTime.MinValue;
 			}
