@@ -81,7 +81,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				StartBehavior								= StartBehavior.WaitUntilFlat;
 				TimeInForce									= TimeInForce.Gtc;
 				TraceOrders									= false;
-				RealtimeErrorHandling						= RealtimeErrorHandling.StopCancelClose;
+				RealtimeErrorHandling						= RealtimeErrorHandling.IgnoreAllErrors;
 				StopTargetHandling							= StopTargetHandling.PerEntryExecution;
 				BarsRequiredToTrade							= 20;
 				IsInstantiatedOnEachOptimizationIteration	= true;
@@ -106,35 +106,35 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// Exit Management
 				EnableMultiContract							= false;
 				EnableStopLoss								= false;
-				StopLossTicks								= 20;
+				StopLossTicks								= 15;
 				EnableProfitTarget							= false;
-				ProfitTargetTicks							= 40;
+				ProfitTargetTicks							= 20;
 				EnableTrailStop								= false;
-				TrailStopTicks								= 30;
+				TrailStopTicks								= 15;
 				EnableComplexTrailingStop					= true;
 				UsePercentageBasedTrailing					= false;
 				PercentageTrailOffset						= 0.4;
 
-				// Contract 1 Trailing Settings (NQ defaults)
-				Contract1_TrailingInitialTicks				= 30;
-				Contract1_Step1Ticks						= 25;
-				Contract1_Step1TriggerTicks					= 20;
-				Contract1_Step2Ticks						= 20;
-				Contract1_Step2TriggerTicks					= 40;
-				Contract1_Step3Ticks						= 15;
-				Contract1_Step3TriggerTicks					= 60;
+				// Contract 1 Trailing Settings (Quick scalp defaults)
+				Contract1_TrailingInitialTicks				= 15;
+				Contract1_Step1Ticks						= 12;
+				Contract1_Step1TriggerTicks					= 10;
+				Contract1_Step2Ticks						= 10;
+				Contract1_Step2TriggerTicks					= 20;
+				Contract1_Step3Ticks						= 8;
+				Contract1_Step3TriggerTicks					= 30;
 
-				// Contract 2 Trailing Settings (more aggressive defaults)
+				// Contract 2 Trailing Settings (very aggressive for runner)
 				EnableContract2Settings						= false;
-				Contract2_TrailingInitialTicks				= 20;
-				Contract2_Step1Ticks						= 15;
-				Contract2_Step1TriggerTicks					= 30;
-				Contract2_Step2Ticks						= 10;
-				Contract2_Step2TriggerTicks					= 50;
-				Contract2_Step3Ticks						= 8;
-				Contract2_Step3TriggerTicks					= 80;
+				Contract2_TrailingInitialTicks				= 12;
+				Contract2_Step1Ticks						= 10;
+				Contract2_Step1TriggerTicks					= 15;
+				Contract2_Step2Ticks						= 8;
+				Contract2_Step2TriggerTicks					= 25;
+				Contract2_Step3Ticks						= 6;
+				Contract2_Step3TriggerTicks					= 40;
 
-				MinimumStopDistanceTicks					= 10;
+				MinimumStopDistanceTicks					= 5;
 				EnableStopCalculationDelay					= true;
 
 				// Keywords (must match indicator settings)
@@ -336,14 +336,21 @@ namespace NinjaTrader.NinjaScript.Strategies
 					// Use standard stop/target if complex trailing is disabled
 					if (!EnableComplexTrailingStop)
 					{
-						if (EnableStopLoss)
-							SetStopLoss(CalculationMode.Ticks, StopLossTicks);
+						try
+						{
+							if (EnableStopLoss)
+								SetStopLoss(CalculationMode.Ticks, StopLossTicks);
 
-						if (EnableProfitTarget)
-							SetProfitTarget(CalculationMode.Ticks, ProfitTargetTicks);
+							if (EnableProfitTarget)
+								SetProfitTarget(CalculationMode.Ticks, ProfitTargetTicks);
 
-						if (EnableTrailStop)
-							SetTrailStop(CalculationMode.Ticks, TrailStopTicks);
+							if (EnableTrailStop)
+								SetTrailStop(CalculationMode.Ticks, TrailStopTicks);
+						}
+						catch (Exception stopEx)
+						{
+							Print(string.Format("{0}: ERROR setting stops: {1} - continuing without stops", Time[0], stopEx.Message));
+						}
 					}
 				}
 				catch (Exception ex)
@@ -386,14 +393,21 @@ namespace NinjaTrader.NinjaScript.Strategies
 					// Use standard stop/target if complex trailing is disabled
 					if (!EnableComplexTrailingStop)
 					{
-						if (EnableStopLoss)
-							SetStopLoss(CalculationMode.Ticks, StopLossTicks);
+						try
+						{
+							if (EnableStopLoss)
+								SetStopLoss(CalculationMode.Ticks, StopLossTicks);
 
-						if (EnableProfitTarget)
-							SetProfitTarget(CalculationMode.Ticks, ProfitTargetTicks);
+							if (EnableProfitTarget)
+								SetProfitTarget(CalculationMode.Ticks, ProfitTargetTicks);
 
-						if (EnableTrailStop)
-							SetTrailStop(CalculationMode.Ticks, TrailStopTicks);
+							if (EnableTrailStop)
+								SetTrailStop(CalculationMode.Ticks, TrailStopTicks);
+						}
+						catch (Exception stopEx)
+						{
+							Print(string.Format("{0}: ERROR setting stops: {1} - continuing without stops", Time[0], stopEx.Message));
+						}
 					}
 				}
 				catch (Exception ex)
@@ -1261,8 +1275,16 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 				if (isValidStop)
 				{
-					SetStopLoss("", CalculationMode.Price, stopPrice, false);
-					return true;
+					try
+					{
+						SetStopLoss("", CalculationMode.Price, stopPrice, false);
+						return true;
+					}
+					catch (Exception setStopEx)
+					{
+						Print(string.Format("{0}: SetStopLoss rejected price {1:F2}: {2}", Time[0], stopPrice, setStopEx.Message));
+						return false;
+					}
 				}
 
 				return false;

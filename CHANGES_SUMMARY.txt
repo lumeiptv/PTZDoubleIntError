@@ -1,0 +1,60 @@
+PTZ STRATEGY - ERROR PREVENTION & SCALPING OPTIMIZATION
+========================================================
+
+CRITICAL FIX - Strategy Will No Longer Shut Down on Errors:
+-----------------------------------------------------------
+✓ Changed RealtimeErrorHandling from StopCancelClose to IgnoreAllErrors
+  - Strategy will continue running even if it encounters stop order errors
+  - All errors are logged but don't stop execution
+
+Enhanced Error Handling:
+------------------------
+✓ Added try-catch blocks around ALL SetStopLoss calls
+✓ Added try-catch blocks around SetProfitTarget calls
+✓ Added try-catch blocks around SetTrailStop calls
+✓ Errors are logged to output but strategy continues
+
+Improved Stop Validation Logic:
+-------------------------------
+✓ Simplified TrySetStopLoss - returns false if stop is invalid instead of throwing errors
+✓ Better bid/ask validation with extra 3-tick buffer
+✓ Stops only update when they improve position (never worsen)
+
+NEW SCALPING-OPTIMIZED PARAMETERS:
+==================================
+
+Contract 1 (Quick Scalp Settings):
+----------------------------------
+Initial Trailing Stop: 15 ticks (was 30)
+Step 1: 12 ticks at 10 ticks profit (was 25 @ 20)
+Step 2: 10 ticks at 20 ticks profit (was 20 @ 40)
+Step 3: 8 ticks at 30 ticks profit (was 15 @ 60)
+
+Contract 2 (Aggressive Runner):
+-------------------------------
+Initial Trailing Stop: 12 ticks (was 20)
+Step 1: 10 ticks at 15 ticks profit (was 15 @ 30)
+Step 2: 8 ticks at 25 ticks profit (was 10 @ 50)
+Step 3: 6 ticks at 40 ticks profit (was 8 @ 80)
+
+Basic Stop/Target Settings:
+---------------------------
+Stop Loss: 15 ticks (was 20)
+Profit Target: 20 ticks (was 40)
+Trail Stop: 15 ticks (was 30)
+Minimum Stop Distance: 5 ticks (was 10)
+
+WHAT THIS MEANS:
+===============
+• Strategy takes profits faster - optimized for quick in/out scalping
+• Stops are tighter but more responsive
+• Strategy WILL NOT shut down on errors anymore
+• All errors are logged so you can see what happened
+• If a stop can't be placed, it skips that update and tries again next bar
+
+TESTING RECOMMENDATION:
+======================
+1. Start with 1 contract to test (EnableMultiContract = false)
+2. Monitor the output window for any logged errors
+3. If you see repeated stop errors, increase MinimumStopDistanceTicks by 1-2 ticks
+4. Once stable with 1 contract, enable multi-contract if desired
