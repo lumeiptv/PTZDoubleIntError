@@ -1029,57 +1029,56 @@ namespace NinjaTrader.NinjaScript.Strategies
 		{
 			try
 			{
-			if (Position.MarketPosition == MarketPosition.Flat)
-			{
-				stopOrderRetryCount = 0;
-				return;
-			}
-
-			if (EnableStopCalculationDelay)
-			{
-				TimeSpan timeSinceLastAttempt = Time[0] - lastStopOrderAttempt;
-				if (timeSinceLastAttempt.TotalMilliseconds < STOP_CALCULATION_DELAY_MS)
+				if (Position.MarketPosition == MarketPosition.Flat)
 				{
+					stopOrderRetryCount = 0;
 					return;
 				}
-			}
 
-			double currentPrice = Close[0];
-			double unrealizedProfitTicks = 0;
-
-			if (Position.MarketPosition == MarketPosition.Long)
-			{
-				unrealizedProfitTicks = (currentPrice - Position.AveragePrice) / TickSize;
-
-				if (!EnableMultiContract || Position.Quantity == 1)
+				if (EnableStopCalculationDelay)
 				{
-					ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Long, 0);
-				}
-				else
-				{
-					for (int i = 0; i < Math.Min(Position.Quantity, 2); i++)
+					TimeSpan timeSinceLastAttempt = Time[0] - lastStopOrderAttempt;
+					if (timeSinceLastAttempt.TotalMilliseconds < STOP_CALCULATION_DELAY_MS)
 					{
-						ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Long, i);
+						return;
 					}
 				}
-			}
-			else if (Position.MarketPosition == MarketPosition.Short)
-			{
-				unrealizedProfitTicks = (Position.AveragePrice - currentPrice) / TickSize;
 
-				if (!EnableMultiContract || Position.Quantity == 1)
+				double currentPrice = Close[0];
+				double unrealizedProfitTicks = 0;
+
+				if (Position.MarketPosition == MarketPosition.Long)
 				{
-					ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Short, 0);
-				}
-				else
-				{
-					for (int i = 0; i < Math.Min(Position.Quantity, 2); i++)
+					unrealizedProfitTicks = (currentPrice - Position.AveragePrice) / TickSize;
+
+					if (!EnableMultiContract || Position.Quantity == 1)
 					{
-						ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Short, i);
+						ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Long, 0);
+					}
+					else
+					{
+						for (int i = 0; i < Math.Min(Position.Quantity, 2); i++)
+						{
+							ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Long, i);
+						}
 					}
 				}
-			}
+				else if (Position.MarketPosition == MarketPosition.Short)
+				{
+					unrealizedProfitTicks = (Position.AveragePrice - currentPrice) / TickSize;
 
+					if (!EnableMultiContract || Position.Quantity == 1)
+					{
+						ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Short, 0);
+					}
+					else
+					{
+						for (int i = 0; i < Math.Min(Position.Quantity, 2); i++)
+						{
+							ManageSingleContractTrail(currentPrice, unrealizedProfitTicks, MarketPosition.Short, i);
+						}
+					}
+				}
 			}
 			catch (Exception ex)
 			{
@@ -1141,23 +1140,29 @@ namespace NinjaTrader.NinjaScript.Strategies
 					}
 
 					double newStopPrice = currentPrice - (trailDistance * TickSize);
-					double minStopPrice = currentPrice - ((trailDistance + MinimumStopDistanceTicks) * TickSize);
-					if (newStopPrice > minStopPrice)
-					{
-						newStopPrice = minStopPrice;
-					}
 
 					if (trailStopPrice[contractIndex] == 0 || newStopPrice > trailStopPrice[contractIndex])
 					{
-						trailStopPrice[contractIndex] = newStopPrice;
+						double currentBid = GetCurrentBidPrice();
+						double safeMinStop = currentBid - ((trailDistance + MinimumStopDistanceTicks) * TickSize);
 
-						if (TrySetStopLoss(trailStopPrice[contractIndex], MarketPosition.Long, currentPrice))
+						if (newStopPrice >= currentBid)
 						{
-							stopOrderRetryCount = 0;
-							lastStopOrderAttempt = Time[0];
-							string contractLabel = EnableMultiContract ? string.Format(" Contract {0}", contractIndex + 1) : "";
-							Print(string.Format("{0}:{1} Long Trailing Stop updated to {2:F2} (Trail: {3:F1} ticks, Profit: {4:F1} ticks)",
-								Time[0], contractLabel, trailStopPrice[contractIndex], trailDistance, unrealizedProfitTicks));
+							newStopPrice = safeMinStop;
+						}
+
+						if (newStopPrice > trailStopPrice[contractIndex] || trailStopPrice[contractIndex] == 0)
+						{
+							trailStopPrice[contractIndex] = newStopPrice;
+
+							if (TrySetStopLoss(trailStopPrice[contractIndex], MarketPosition.Long, currentPrice))
+							{
+								stopOrderRetryCount = 0;
+								lastStopOrderAttempt = Time[0];
+								string contractLabel = EnableMultiContract ? string.Format(" Contract {0}", contractIndex + 1) : "";
+								Print(string.Format("{0}:{1} Long Trailing Stop updated to {2:F2} (Trail: {3:F1} ticks, Profit: {4:F1} ticks)",
+									Time[0], contractLabel, trailStopPrice[contractIndex], trailDistance, unrealizedProfitTicks));
+							}
 						}
 					}
 				}
@@ -1186,25 +1191,29 @@ namespace NinjaTrader.NinjaScript.Strategies
 					}
 
 					double newStopPrice = currentPrice + (trailDistance * TickSize);
-					double currentAsk = GetCurrentAskPrice();
-					double minStopPrice = currentAsk + ((MinimumStopDistanceTicks + 2) * TickSize);
-
-					if (newStopPrice <= minStopPrice)
-					{
-						newStopPrice = minStopPrice;
-					}
 
 					if (trailStopPrice[contractIndex] == 0 || newStopPrice < trailStopPrice[contractIndex])
 					{
-						trailStopPrice[contractIndex] = newStopPrice;
+						double currentAsk = GetCurrentAskPrice();
+						double safeMinStop = currentAsk + ((trailDistance + MinimumStopDistanceTicks) * TickSize);
 
-						if (TrySetStopLoss(trailStopPrice[contractIndex], MarketPosition.Short, currentPrice))
+						if (newStopPrice <= currentAsk)
 						{
-							stopOrderRetryCount = 0;
-							lastStopOrderAttempt = Time[0];
-							string contractLabel = EnableMultiContract ? string.Format(" Contract {0}", contractIndex + 1) : "";
-							Print(string.Format("{0}:{1} Short Trailing Stop updated to {2:F2} (Trail: {3:F1} ticks, Profit: {4:F1} ticks)",
-								Time[0], contractLabel, trailStopPrice[contractIndex], trailDistance, unrealizedProfitTicks));
+							newStopPrice = safeMinStop;
+						}
+
+						if (newStopPrice < trailStopPrice[contractIndex] || trailStopPrice[contractIndex] == 0)
+						{
+							trailStopPrice[contractIndex] = newStopPrice;
+
+							if (TrySetStopLoss(trailStopPrice[contractIndex], MarketPosition.Short, currentPrice))
+							{
+								stopOrderRetryCount = 0;
+								lastStopOrderAttempt = Time[0];
+								string contractLabel = EnableMultiContract ? string.Format(" Contract {0}", contractIndex + 1) : "";
+								Print(string.Format("{0}:{1} Short Trailing Stop updated to {2:F2} (Trail: {3:F1} ticks, Profit: {4:F1} ticks)",
+									Time[0], contractLabel, trailStopPrice[contractIndex], trailDistance, unrealizedProfitTicks));
+							}
 						}
 					}
 				}
@@ -1221,55 +1230,42 @@ namespace NinjaTrader.NinjaScript.Strategies
 			{
 				double currentBid = GetCurrentBidPrice();
 				double currentAsk = GetCurrentAskPrice();
+				bool isValidStop = false;
 
-				// Final validation before placing order
 				if (position == MarketPosition.Short)
 				{
-					// Buy-to-cover stop MUST be above current ask (not bid!)
-					// Add extra buffer to ensure order is accepted
-					double minStopPrice = currentAsk + ((MinimumStopDistanceTicks + 2) * TickSize);
+					double minAllowedStop = currentAsk + ((MinimumStopDistanceTicks + 3) * TickSize);
 
-					if (stopPrice <= minStopPrice)
+					if (stopPrice > minAllowedStop)
 					{
-						if (stopOrderRetryCount < MAX_STOP_RETRY_ATTEMPTS)
-						{
-							stopOrderRetryCount++;
-							Print(string.Format("{0}: Short stop validation failed - adjusting from {1:F2} to {2:F2} (Ask: {3:F2}, Attempt {4}/{5})",
-								Time[0], stopPrice, minStopPrice, currentAsk, stopOrderRetryCount, MAX_STOP_RETRY_ATTEMPTS));
-							stopPrice = minStopPrice;
-						}
-						else
-						{
-							Print(string.Format("{0}: Stop order retry limit reached - skipping stop update", Time[0]));
-							return false;
-						}
+						isValidStop = true;
+					}
+					else
+					{
+						return false;
 					}
 				}
 				else if (position == MarketPosition.Long)
 				{
-					// Sell stop MUST be below current bid (not ask!)
-					double maxStopPrice = currentBid - ((MinimumStopDistanceTicks + 2) * TickSize);
+					double maxAllowedStop = currentBid - ((MinimumStopDistanceTicks + 3) * TickSize);
 
-					if (stopPrice >= maxStopPrice)
+					if (stopPrice < maxAllowedStop)
 					{
-						if (stopOrderRetryCount < MAX_STOP_RETRY_ATTEMPTS)
-						{
-							stopOrderRetryCount++;
-							Print(string.Format("{0}: Long stop validation failed - adjusting from {1:F2} to {2:F2} (Bid: {3:F2}, Attempt {4}/{5})",
-								Time[0], stopPrice, maxStopPrice, currentBid, stopOrderRetryCount, MAX_STOP_RETRY_ATTEMPTS));
-							stopPrice = maxStopPrice;
-						}
-						else
-						{
-							Print(string.Format("{0}: Stop order retry limit reached - skipping stop update", Time[0]));
-							return false;
-						}
+						isValidStop = true;
+					}
+					else
+					{
+						return false;
 					}
 				}
 
-				// Place the stop order
-				SetStopLoss("", CalculationMode.Price, stopPrice, false);
-				return true;
+				if (isValidStop)
+				{
+					SetStopLoss("", CalculationMode.Price, stopPrice, false);
+					return true;
+				}
+
+				return false;
 			}
 			catch (Exception ex)
 			{
